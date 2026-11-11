@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>منصة مُنجز - إدارة مشاريع ومستخلصات المقاولات</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <style> body { font-family: 'Cairo', sans-serif; } </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-6">
+  <div class="max-w-5xl mx-auto space-y-6">
+    
+    <!-- رأس الصفحة -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">نظام مُنجز (Monjez) 🏗️</h1>
+        <p class="text-sm text-slate-500">لوحة المتابعة الميدانية وإصدار المستخلصات الفورية</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="document.getElementById('updateModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition text-sm">
+          ➕ تسجيل إنجاز ميداني
+        </button>
+        <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition text-sm flex items-center gap-1">
+          <span>🖨️ طباعة المستخلص</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- بطاقات الإحصائيات -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+        <p class="text-xs text-slate-400 font-bold mb-1">المشروع الحالي</p>
+        <h2 id="projectName" class="text-lg font-bold text-slate-800">جاري التحميل...</h2>
+        <p id="projectLocation" class="text-xs text-slate-500 mt-1">-</p>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+        <p class="text-xs text-slate-400 font-bold mb-1">إجمالي قيمة المقايسة</p>
+        <h2 id="totalBudget" class="text-2xl font-bold text-indigo-600">0 ر.س</h2>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+        <p class="text-xs text-slate-400 font-bold mb-1">المستحق للصرف (المستخلص الحالي)</p>
+        <h2 id="claimAmount" class="text-2xl font-bold text-emerald-600">0 ر.س</h2>
+      </div>
+    </div>
+
+    <!-- جدول المقايسة -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="p-5 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800">دفتر الحصر ونسب الإنجاز (BOQ)</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-right">
+          <thead class="bg-slate-50 text-slate-500 text-xs">
+            <tr>
+              <th class="p-4">البند</th>
+              <th class="p-4">الوحدة</th>
+              <th class="p-4">الكمية التعاقدية</th>
+              <th class="p-4">المنفذ بالموقع</th>
+              <th class="p-4">نسبة الإنجاز</th>
+              <th class="p-4">سعر الوحدة</th>
+              <th class="p-4">المبلغ المستحق</th>
+            </tr>
+          </thead>
+          <tbody id="boqTable" class="divide-y divide-slate-100 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- نافذة تسجيل إنجاز ميداني (Modal) -->
+    <div id="updateModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl space-y-4">
+        <h3 class="text-lg font-bold text-slate-900">تسجيل كمية منجزة جديدة</h3>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">اختر البند</label>
+          <select id="itemSelect" class="w-full border border-slate-200 p-2.5 rounded-xl text-sm focus:outline-blue-500"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">الكمية الإضافية المنجزة اليوم</label>
+          <input type="number" id="qtyInput" placeholder="مثال: 15" class="w-full border border-slate-200 p-2.5 rounded-xl text-sm focus:outline-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">ملاحظات المشرف / المهندس</label>
+          <input type="text" id="notesInput" placeholder="تم استلام الحديد والصب بنجاح" class="w-full border border-slate-200 p-2.5 rounded-xl text-sm focus:outline-blue-500">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button onclick="submitProgress()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold text-sm">حفظ التحديث</button>
+          <button onclick="document.getElementById('updateModal').classList.add('hidden')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-bold text-sm">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://rzupyjmhnfexlmeqijce.supabase.co"; 
+    const SUPABASE_KEY = "sb_publishable_bttKOC3N862lNY6Cea8aQg_0JmYAvum";
+
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_KEY);
+    let itemsData = [];
+
+    async function loadData() {
+      const { data: project } = await client.from('projects').select('*').limit(1).single();
+      if (project) {
+        document.getElementById('projectName').innerText = project.name;
+        document.getElementById('projectLocation').innerText = `${project.client_name} | ${project.location}`;
+        document.getElementById('totalBudget').innerText = Number(project.budget).toLocaleString() + ' ر.س';
+      }
+
+      const { data: items } = await client.from('boq_items').select('*');
+      if (items) {
+        itemsData = items;
+        const tbody = document.getElementById('boqTable');
+        const itemSelect = document.getElementById('itemSelect');
+        tbody.innerHTML = '';
+        itemSelect.innerHTML = '';
+        let totalClaim = 0;
+
+        items.forEach(item => {
+          const percent = Math.min(Math.round((item.completed_quantity / item.total_quantity) * 100), 100);
+          const itemTotal = item.completed_quantity * item.unit_price;
+          totalClaim += itemTotal;
+
+          itemSelect.innerHTML += `<option value="${item.id}">${item.item_name} (المنفذ حالياً: ${item.completed_quantity})</option>`;
+
+          tbody.innerHTML += `
+            <tr class="hover:bg-slate-50/50">
+              <td class="p-4 font-semibold text-slate-800">${item.item_name}</td>
+              <td class="p-4">${item.unit}</td>
+              <td class="p-4">${item.total_quantity}</td>
+              <td class="p-4 font-bold text-slate-900">${item.completed_quantity}</td>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 bg-slate-200 rounded-full h-2">
+                    <div class="bg-emerald-500 h-2 rounded-full" style="width: ${percent}%"></div>
+                  </div>
+                  <span class="text-xs font-bold text-slate-600">${percent}%</span>
+                </div>
+              </td>
+              <td class="p-4">${Number(item.unit_price).toLocaleString()} ر.س</td>
+              <td class="p-4 font-bold text-emerald-600">${Number(itemTotal).toLocaleString()} ر.س</td>
+            </tr>
+          `;
+        });
+
+        document.getElementById('claimAmount').innerText = Number(totalClaim).toLocaleString() + ' ر.س';
+      }
+    }
+
+    async function submitProgress() {
+      const itemId = document.getElementById('itemSelect').value;
+      const additionalQty = parseFloat(document.getElementById('qtyInput').value);
+      const notes = document.getElementById('notesInput').value;
+
+      if (!additionalQty || additionalQty <= 0) {
+        alert("يرجى إدخال كمية صحيحة");
+        return;
+      }
+
+      const currentItem = itemsData.find(i => i.id === itemId);
+      const newTotal = Number(currentItem.completed_quantity) + additionalQty;
+
+      // تحديث الجدول
+      await client.from('boq_items').update({ completed_quantity: newTotal }).eq('id', itemId);
+
+      // تسجيل العملية في السجل
+      await client.from('daily_logs').insert([{
+        project_id: currentItem.project_id,
+        boq_item_id: itemId,
+        quantity_done: additionalQty,
+        supervisor_notes: notes,
+        source: 'dashboard'
+      }]);
+
+      document.getElementById('updateModal').classList.add('hidden');
+      document.getElementById('qtyInput').value = '';
+      document.getElementById('notesInput').value = '';
+      loadData();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
